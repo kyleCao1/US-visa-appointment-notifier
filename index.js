@@ -5,6 +5,7 @@ require('dotenv').config();
 const {delay, sendEmail, logStep} = require('./utils');
 const {siteInfo, loginCred, IS_PROD, NEXT_SCHEDULE_POLL, MAX_NUMBER_OF_POLL, NOTIFY_ON_DATE_BEFORE} = require('./config');
 
+let delayTime = NEXT_SCHEDULE_POLL;
 let isLoggedIn = false;
 let maxTries = MAX_NUMBER_OF_POLL
 
@@ -33,8 +34,8 @@ const notifyMe = async (earliestDate) => {
   const formattedDate = format(earliestDate, 'dd-MM-yyyy');
   logStep(`sending an email to schedule for ${formattedDate}`);
   await sendEmail({
-    subject: `We found an earlier date ${formattedDate}`,
-    text: `Hurry and schedule for ${formattedDate} before it is taken.`
+    subject: `We found an earlier date ${formattedDate}(Vancouver)`,
+    text: `Hurry and schedule for ${formattedDate} before it is taken.(Vancouver)`
   })
 }
 
@@ -44,7 +45,13 @@ const checkForSchedules = async (page) => {
     'Accept': 'application/json, text/javascript, */*; q=0.01',
     'X-Requested-With': 'XMLHttpRequest'
   });
-  await page.goto(siteInfo.APPOINTMENTS_JSON_URL);
+
+  try{
+    await page.goto(siteInfo.APPOINTMENTS_JSON_URL);
+  } catch(err){
+    console.error(err);
+  };
+  
 
   const originalPageContent = await page.content();
   const bodyText = await page.evaluate(() => {
@@ -53,6 +60,13 @@ const checkForSchedules = async (page) => {
 
   try{
     console.log(bodyText);
+
+    //if no schedules found, delay for 2 minutes
+    if (bodyText == '[]'){
+      delayTime = 120_000;
+    } else {
+      delayTime = 30_000;
+    }
     const parsedBody =  JSON.parse(bodyText);
 
     if(!Array.isArray(parsedBody)) {
@@ -90,7 +104,7 @@ const process = async (browser) => {
     await notifyMe(earliestDate);
   }
 
-  await delay(NEXT_SCHEDULE_POLL)
+  await delay(delayTime)
 
   await process(browser)
 }
