@@ -39,15 +39,16 @@ const notifyMe = async (earliestDate) => {
   })
 }
 
-const checkForSchedules = async (page) => {
+const checkForSchedules = async (page, FACILITY_ID) => {
   logStep('checking for schedules');
   await page.setExtraHTTPHeaders({
     'Accept': 'application/json, text/javascript, */*; q=0.01',
     'X-Requested-With': 'XMLHttpRequest'
   });
 
+  const url = `https://ais.usvisa-info.com/${siteInfo.COUNTRY_CODE}/niv/schedule/${siteInfo.SCHEDULE_ID}/appointment/days/${FACILITY_ID}.json?appointments%5Bexpedite%5D=false`
   try{
-    await page.goto(siteInfo.APPOINTMENTS_JSON_URL);
+    await page.goto(url);
   } catch(err){
     console.error(err);
   };
@@ -61,12 +62,6 @@ const checkForSchedules = async (page) => {
   try{
     console.log(bodyText);
 
-    //if no schedules found, delay for 2 minutes
-    if (bodyText == '[]'){
-      delayTime = 120_000;
-    } else {
-      delayTime = 30_000;
-    }
     const parsedBody =  JSON.parse(bodyText);
 
     if(!Array.isArray(parsedBody)) {
@@ -76,6 +71,7 @@ const checkForSchedules = async (page) => {
     const dates =parsedBody.map(item => parseISO(item.date));
     const [earliest] = dates.sort(compareAsc)
 
+    await delay(3_000)
     return earliest;
   }catch(err){
     console.log("Unable to parse page JSON content", originalPageContent);
@@ -99,10 +95,24 @@ const process = async (browser) => {
      isLoggedIn = await login(page);
   }
 
-  const earliestDate = await checkForSchedules(page);
-  if(earliestDate && isBefore(earliestDate, parseISO(NOTIFY_ON_DATE_BEFORE))){
-    await notifyMe(earliestDate);
+  const facilityIDNumber = siteInfo.LAST_FACILITY_ID - siteInfo.FIRST_FACILITY_ID + 1; // number of facilities
+  let apptNotAvailable = true
+  for (let i = 0; i < facilityIDNumber; ++i) {
+    const earliestDate = await checkForSchedules(page, i + parseInt(siteInfo.FIRST_FACILITY_ID));
+    if (earliestDate != undefined) apptNotAvailable = false;
+    if(earliestDate && isBefore(earliestDate, parseISO(NOTIFY_ON_DATE_BEFORE))){
+      await notifyMe(earliestDate);
+    }
   }
+
+  //if no schedules found, delay for 2 minutes
+  if(apptNotAvailable) {
+    delayTime = 120_000;
+  } else {
+    delayTime = 30_000;
+  }
+  
+  await page.close();
 
   await delay(delayTime)
 

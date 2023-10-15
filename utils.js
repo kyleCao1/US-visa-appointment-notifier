@@ -28,7 +28,9 @@ const sendEmail = async (params) => {
 };
 
 const logStep = (stepTitle) => {
-  console.log("=====>>> Step:", stepTitle);
+  const newDate = new Date();
+  const currentTime = newDate.toLocaleTimeString();
+  console.log(`[${currentTime}] =====>>> Step:`, stepTitle);
 }
 
 module.exports = {

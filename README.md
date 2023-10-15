@@ -19,7 +19,7 @@ $ npm start
 ...
 ```
 
-![email notification sample](./email-screen-shot.png)
+![email notification sample](./img/email-screen-shot.png)
 
 
 ## How it works
